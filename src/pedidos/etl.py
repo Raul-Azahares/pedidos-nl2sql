@@ -1,4 +1,4 @@
-"""ETL: reads the dirty CSV, cleans it and loads it into SQLite.
+"""ETL: reads the dirty CSV, cleans it and loads it into SQLite along with the views.
 
 Usage: python -m pedidos.etl [--input data/raw/pedidos.csv] [--db data/pedidos.db]
 """
@@ -19,7 +19,7 @@ from pedidos.domain import CSV_COLUMNS
 
 DEFAULT_INPUT = Path("data/raw/pedidos.csv")
 REJECTED_OUTPUT = Path("data/processed/rechazados.csv")
-SQL_SCRIPTS = ("schema.sql",)
+SQL_SCRIPTS = ("schema.sql", "views.sql")
 
 
 def read_rows(path: Path) -> list[dict[str, str]]:

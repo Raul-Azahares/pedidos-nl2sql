@@ -100,6 +100,19 @@ Fields fixed in loaded rows:
 add up to 61. There are 35 duplicates removed rather than 36 because, in one case, both copies had
 errors and both were rejected.
 
+### Models (SQL views)
+
+They live in [`views.sql`](src/pedidos/sql/views.sql), and the ETL creates them on every load.
+
+- **`ventas_mes_pais(mes, pais, num_pedidos, ventas)`**, with `mes` formatted as `YYYY-MM`.
+- **`top_clientes(cliente, num_pedidos, total_comprado)`**: the 10 customers with the highest total
+  spent. The tie-break on the name makes the result deterministic.
+- **Business decision: a sale is a `completado` (completed) order.** Cancelled, returned and
+  pending orders do not count. The rule lives in the views, which act as a semantic layer: the LLM
+  uses them to talk about sales and never has to decide what counts as one.
+- Amounts are in euros (assumption: a single currency), rounded to 2 decimals in the views because
+  SQLite has no `DECIMAL` type.
+
 ## Known limitations
 
 _Pending._

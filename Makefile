@@ -6,7 +6,7 @@ install: ## Install dependencies (including dev ones) from uv.lock
 data: ## Generate the dirty orders CSV (deterministic: fixed seed)
 	uv run python -m pedidos.generate
 
-etl: ## Clean the CSV and load it into SQLite (data/pedidos.db)
+etl: ## Clean the CSV and load it into SQLite (data/pedidos.db) along with the views
 	uv run python -m pedidos.etl
 
 test: ## Run the tests (no API key or network needed)
