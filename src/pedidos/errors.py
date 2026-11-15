@@ -32,3 +32,19 @@ class QueryTimeoutError(AppError):
 
 class DatabaseUnavailableError(AppError):
     code = "DB_UNAVAILABLE"
+
+
+class LLMUnavailableError(AppError):
+    """The LLM provider cannot be reached, rejects the key or has run out of quota."""
+
+    code = "LLM_UNAVAILABLE"
+
+
+class LLMTimeoutError(AppError):
+    code = "LLM_TIMEOUT"
+
+
+class LLMInvalidOutputError(AppError):
+    """The LLM answered with something unusable: invalid JSON, or a cut-off or blocked answer."""
+
+    code = "LLM_INVALID_OUTPUT"

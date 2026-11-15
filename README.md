@@ -139,6 +139,29 @@ returned rows (the response says whether it was truncated) and a size limit per 
 The database tests ([`test_db.py`](tests/test_db.py)) send dangerous SQL straight to the
 connection, skipping the validator, to prove that the second layer works on its own.
 
+### LLM (question → SQL)
+
+- **Structured output.** Gemini has to answer with JSON that matches a schema (`sql`,
+  `explanation`), so there is no free text to parse. The answer is validated again with Pydantic.
+- **The prompt** ([`sql_generation.txt`](src/pedidos/prompts/sql_generation.txt)) contains the
+  schema of the three allowed tables, the values that really exist in the data (countries,
+  statuses, products and the date range), the business rules and three examples. It is filled in
+  from the database at startup and **never includes customer rows**.
+- **Facts are computed, not left to the model.** In a check against the real API, "¿cuánto
+  vendimos en España en marzo?" added up March of every year (€6,745.00), even though the prompt
+  said to use the latest year. Now the prompt lists which year each month refers to
+  (`marzo → 2025-03`) and includes an example of a month without a year. The same question returns
+  €3,647.90, and the explanation states the assumed year.
+- **Questions that cannot be answered**, or that ask to change data, come back with `sql = null`
+  and an explanation instead of an invented query. Checked with "Borra todos los pedidos
+  cancelados" and "¿Cuál es el email de Ana Ruiz?".
+- **Provider failures become clear errors:** a missing or invalid key, exhausted quota, an
+  unknown model, a timeout, a network error, a blocked or cut-off answer, or JSON that does not
+  match the schema. Every case is tested with a simulated HTTP transport (`httpx.MockTransport`),
+  with no network and no key.
+- **Model:** `gemini-3.5-flash-lite` by default (configurable with `LLM_MODEL`). It answers in 1–3
+  seconds.
+
 ## Known limitations
 
 _Pending._
@@ -160,6 +183,7 @@ uses at runtime.
 | Docs | Commit messages, this README and code comments | Their content | It wrote them in Spanish; I switched them to English (the data stays in Spanish) |
 | Data, cleaning and views | The generator with errors, the cleaning, the load and the views, with their tests | The cleaning rules and the definition of a sale (a completed order) | _To be completed after reviewing the code_ |
 | SQL validation | Writing the attack tests first, then the validator and the locked-down connection | The two-layer validation | The tests caught two bugs in the first version (how `COUNT(*)` and denied functions reach SQLite's authorizer); they were fixed before the commit |
+| LLM client | The Gemini client, the prompt and the error handling, then a check against the real API | Structured output, the prompt design and the error mapping | The real-API check caught that "marzo" was added up over every year; the fix was to compute, in the prompt, which year each month refers to |
 
 ## Time spent
 
