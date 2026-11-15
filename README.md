@@ -113,6 +113,32 @@ They live in [`views.sql`](src/pedidos/sql/views.sql), and the ETL creates them 
 - Amounts are in euros (assumption: a single currency), rounded to 2 decimals in the views because
   SQLite has no `DECIMAL` type.
 
+### Safety of the generated SQL
+
+The SQL returned by the LLM is treated as untrusted input, just like anything a user types. There
+are two independent layers, and either one is enough to block a dangerous query:
+
+1. **Validator** ([`sql_guard.py`](src/pedidos/sql_guard.py)): inspects the syntax tree with
+   sqlglot. The query has to meet all of these:
+   - a single `SELECT` statement (or `UNION` / `WITH … SELECT`), with no writes or DDL;
+   - it only reads `pedidos`, `ventas_mes_pais` and `top_clientes`, including inside CTEs,
+     subqueries and joins;
+   - no table functions in `FROM`, no recursive CTEs and no dangerous functions such as
+     `load_extension`.
+
+   A regex would not be enough: it can be dodged with comments or functions, and it would block
+   harmless columns such as `deleted_at`.
+2. **Database** ([`db.py`](src/pedidos/db.py)): the API opens SQLite read-only (`mode=ro`) with an
+   *authorizer*. The engine itself denies anything other than `SELECT`, reading the allowed tables
+   or calling harmless functions. So even if sqlglot and SQLite read a query differently, no door
+   opens.
+
+On top of that, every query has a time limit (a *progress handler* cancels it), a cap on the
+returned rows (the response says whether it was truncated) and a size limit per value.
+
+The database tests ([`test_db.py`](tests/test_db.py)) send dangerous SQL straight to the
+connection, skipping the validator, to prove that the second layer works on its own.
+
 ## Known limitations
 
 _Pending._
@@ -132,6 +158,8 @@ uses at runtime.
 | Environment | Installing the planned dependencies (DuckDB + pandas) | Its diagnosis: PyPI ran at ~10 KB/s and those libraries weigh ~50 MB | I chose SQLite + the standard library instead of DuckDB + pandas: nothing to download, and the engine can enforce the allowed-table list |
 | Environment | Installing the Gemini SDK (`google-genai`) | The download of `cryptography` (4.5 MB, an SDK dependency) failed 9 times; it proposed calling the REST API with httpx | Accepted: one POST request doesn't justify 5 MB of native dependencies |
 | Docs | Commit messages, this README and code comments | Their content | It wrote them in Spanish; I switched them to English (the data stays in Spanish) |
+| Data, cleaning and views | The generator with errors, the cleaning, the load and the views, with their tests | The cleaning rules and the definition of a sale (a completed order) | _To be completed after reviewing the code_ |
+| SQL validation | Writing the attack tests first, then the validator and the locked-down connection | The two-layer validation | The tests caught two bugs in the first version (how `COUNT(*)` and denied functions reach SQLite's authorizer); they were fixed before the commit |
 
 ## Time spent
 
