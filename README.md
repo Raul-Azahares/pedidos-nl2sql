@@ -1,10 +1,10 @@
 # pedidos-nl2sql
 
+[![CI](https://github.com/Raul-Azahares/pedidos-nl2sql/actions/workflows/ci.yml/badge.svg)](https://github.com/Raul-Azahares/pedidos-nl2sql/actions/workflows/ci.yml)
+
 Natural-language questions about order data. An LLM translates the question into SQL, the SQL is
 **validated** before it runs (read-only, allowed tables only), and the result is returned by a
 FastAPI API.
-
-> Technical test in progress: this README is completed as the project moves forward.
 
 ## How to run it
 
@@ -71,7 +71,29 @@ For example, if the LLM generated `DROP TABLE pedidos`, the API would answer wit
 
 ## Architecture
 
-_Pending._
+```text
+make data ──> data/raw/pedidos.csv ──make etl──> data/pedidos.db (pedidos + 2 views)
+                                           └───> data/processed/rechazados.csv
+
+POST /ask {"question": "¿Cuánto vendimos en España en marzo?"}
+  1. LLM (Gemini) ......... prompt with schema, real values and rules → JSON {sql, explanation}
+  2. Validator (sqlglot) .. a single SELECT over the allowed tables, nothing dangerous
+  3. SQLite (read-only) ... authorizer, timeout and row cap
+  4. Response ............. {question, sql, explanation, columns, rows, row_count, truncated}
+```
+
+| Module (`src/pedidos/`) | Role |
+|---|---|
+| `generate.py` | Generates the dirty CSV |
+| `cleaning.py` | Cleaning rules, as pure functions |
+| `etl.py` | CSV → cleaning → SQLite, plus the views |
+| `sql/schema.sql`, `sql/views.sql` | Table schema and the two views |
+| `sql_guard.py` | Layer 1: SQL validation |
+| `db.py` | Layer 2: read-only, locked-down execution |
+| `prompt.py`, `prompts/sql_generation.txt` | System prompt, filled in from the data |
+| `llm.py` | Gemini client behind the `SQLGenerator` interface |
+| `service.py` | Question → SQL → validation → execution |
+| `api.py` | FastAPI app and error contract |
 
 ## Decisions
 
@@ -223,16 +245,46 @@ connection, skipping the validator, to prove that the second layer works on its 
 
 ## Known limitations
 
-_Pending._
+- **Validation guarantees safety, not correctness.** A safe query can still answer something other
+  than what was asked. The views, the returned SQL and the explanation make this auditable, but
+  answer accuracy is not measured automatically yet.
+- **One question at a time.** There is no conversation memory, so a follow-up such as "¿y en
+  abril?" is not understood.
+- **The prompt is built once.** It is filled in from the database the first time the API needs it.
+  After reloading the data with `make etl`, restart the API.
+- **Free tier.** Quotas are low and can change, and Google may use the content to improve its
+  products. That is acceptable only because the data is synthetic.
+- **No authentication or rate limiting** on the API.
+- **Ambiguous dates are read as day/month** by design. A source with US-style dates would need a
+  different rule.
+- **Amounts are `REAL`.** SQLite has no `DECIMAL`, so sums are rounded to 2 decimals in the views.
 
 ## What I would do with more time
 
-_Pending._
+1. **An evaluation set:** 20–30 questions with their expected results, run against the real model
+   to measure accuracy, latency and tokens. Prompt and model changes would then be compared with
+   data instead of intuition. The "marzo" bug I found by hand is exactly what it would catch.
+2. **One bounded retry with feedback:** if the SQL fails validation or execution, send the error
+   back to the LLM once before giving up.
+3. **PostgreSQL in production:** a read-only role with `GRANT SELECT` only on the allowed tables and
+   views, `statement_timeout`, and a connection pool.
+4. **Authentication, rate limiting** and a cache for repeated questions.
+5. **Observability:** request IDs, traces, and tokens and cost per request, with alerts on the error
+   rate per `code`.
+6. **Resilience:** retries with backoff for transient network errors (like the DNS failures I hit)
+   and a fallback model.
+7. **Versioned prompts**, stored together with their evaluation results.
+8. **A Docker image and a deployment** (Cloud Run or similar), with the key in a secret manager.
+9. **A natural-language answer** on top of the table ("En marzo de 2025 vendimos 3.647,90 € en
+   España").
 
 ## How I used AI
 
 Tools: **Claude Code** (Claude Opus 5.5) as a coding assistant, and **Gemini** as the LLM the API
 uses at runtime.
+
+How I worked: Claude Code wrote each phase; I reviewed it, ran it and made the commit myself, one
+phase at a time.
 
 | Phase | What I asked for | What I accepted | What I corrected or decided |
 |---|---|---|---|
@@ -247,4 +299,10 @@ uses at runtime.
 
 ## Time spent
 
-_Pending._
+About 2 h 45 min in total:
+
+- **14 November, about 1 h:** the plan, the environment problems (PyPI at ~10 KB/s, which led to
+  SQLite and httpx) and a first version. I discarded that version to rebuild the project phase by
+  phase, reviewing each phase before committing it.
+- **15 November, about 1 h 45 min:** the rebuild and review, phase by phase. The commit times show
+  the progress.
