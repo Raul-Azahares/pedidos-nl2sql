@@ -1,0 +1,27 @@
+# Entorno de Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Secretos: la API key vive solo en .env, nunca en el repositorio
+.env
+.env.*
+!.env.example
+
+# Artefactos generados (se regeneran con make)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.tmp
+data/processed/
+
+# Editor y sistema operativo
+.vscode/
+.idea/
+.DS_Store
