@@ -55,6 +55,51 @@ _Pending._
 - **The CSV is versioned** (`data/raw/pedidos.csv`, 1,236 rows) so the errors can be inspected
   without running anything.
 
+### Cleaning (`make etl`)
+
+The rules live in [`cleaning.py`](src/pedidos/cleaning.py) as pure functions, each one tested on
+its own. They run in this order: normalize text → parse → validate → deduplicate.
+
+- **Dates:** only formats from an explicit list are accepted. Ambiguous dates (`03/04/2025`) are
+  read as day/month, the convention in every country we sell to. Impossible dates (February 30th)
+  and garbage (`N/A`, `ayer`) are rejected.
+- **Amounts:** a decimal comma is accepted and the value is rounded to cents. Empty, non-numeric
+  or non-positive amounts are rejected. **They are not imputed:** inventing sales is worse than
+  leaving them out.
+- **Text:** extra spaces are removed, and countries and statuses are mapped to their canonical
+  value (`ES`, ` ESPAÑA`, `Espana` → `España`). An unknown country is rejected, not guessed.
+- **Duplicates:** detected by `pedido_id` after normalizing, so reformatted duplicates are caught
+  too. The first valid row is kept, and the report flags it if two copies have different data.
+  There is no deduplication by business key: a customer can buy the same product twice on the
+  same day.
+- **Rejected rows** are saved with their reason in `data/processed/rechazados.csv`, **outside the
+  database**: the database the API reads only contains valid data.
+- **The load is idempotent and atomic:** the database is built in a temporary file that replaces
+  the previous one, so the ETL can be rerun and nobody ever sees a half-finished load. The schema
+  ([`schema.sql`](src/pedidos/sql/schema.sql)) uses `STRICT` tables and `CHECK` constraints as the
+  last barrier.
+
+Result with the generated data:
+
+```text
+Rows read:                 1236
+Orders loaded:             1141
+Duplicates removed:          35
+Rows rejected:               60
+  fecha_invalida             24
+  importe_vacio              37
+Fields fixed in loaded rows:
+  cliente                     6
+  estado                     44
+  fecha                      57
+  importe                    48
+  pais                       70
+```
+
+`loaded + rejected + duplicates = read` holds. One row has two rejection reasons, so the reasons
+add up to 61. There are 35 duplicates removed rather than 36 because, in one case, both copies had
+errors and both were rejected.
+
 ## Known limitations
 
 _Pending._

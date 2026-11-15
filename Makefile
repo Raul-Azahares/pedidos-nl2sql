@@ -1,10 +1,13 @@
-.PHONY: install data test lint format
+.PHONY: install data etl test lint format
 
 install: ## Install dependencies (including dev ones) from uv.lock
 	uv sync
 
 data: ## Generate the dirty orders CSV (deterministic: fixed seed)
 	uv run python -m pedidos.generate
+
+etl: ## Clean the CSV and load it into SQLite (data/pedidos.db)
+	uv run python -m pedidos.etl
 
 test: ## Run the tests (no API key or network needed)
 	uv run pytest
