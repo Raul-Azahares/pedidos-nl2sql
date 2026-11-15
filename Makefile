@@ -1,15 +1,18 @@
-.PHONY: install test lint format
+.PHONY: install data test lint format
 
-install: ## Instala dependencias (incluidas las de desarrollo) desde uv.lock
+install: ## Install dependencies (including dev ones) from uv.lock
 	uv sync
 
-test: ## Ejecuta los tests (no necesitan API key ni red)
+data: ## Generate the dirty orders CSV (deterministic: fixed seed)
+	uv run python -m pedidos.generate
+
+test: ## Run the tests (no API key or network needed)
 	uv run pytest
 
-lint: ## Comprueba estilo y formato
+lint: ## Check style and formatting
 	uv run ruff check .
 	uv run ruff format --check .
 
-format: ## Aplica formato y arreglos automáticos
+format: ## Apply formatting and automatic fixes
 	uv run ruff format .
 	uv run ruff check --fix .
