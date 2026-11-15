@@ -12,6 +12,7 @@ class AppError(Exception):
     def __init__(self, message: str) -> None:
         super().__init__(message)
         self.message = message
+        self.sql: str | None = None  # the generated SQL, when the error is about it
 
 
 class UnsafeQueryError(AppError):
@@ -48,3 +49,9 @@ class LLMInvalidOutputError(AppError):
     """The LLM answered with something unusable: invalid JSON, or a cut-off or blocked answer."""
 
     code = "LLM_INVALID_OUTPUT"
+
+
+class QuestionNotAnswerableError(AppError):
+    """The LLM says the question cannot be answered with the available data."""
+
+    code = "QUESTION_NOT_ANSWERABLE"

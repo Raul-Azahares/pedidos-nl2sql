@@ -14,3 +14,5 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr = SecretStr("")
     llm_model: str = "gemini-3.5-flash-lite"
     llm_timeout_s: float = 20.0
+    max_rows: int = 500
+    query_timeout_s: float = 5.0

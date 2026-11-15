@@ -8,7 +8,66 @@ FastAPI API.
 
 ## How to run it
 
-_Pending._
+Requires [uv](https://docs.astral.sh/uv/), which also installs Python 3.12 if needed.
+
+```bash
+uv sync                 # install the dependencies pinned in uv.lock
+cp .env.example .env    # then put a Gemini key in GEMINI_API_KEY (free at aistudio.google.com/apikey)
+make data               # generate the dirty CSV (optional: it is already versioned)
+make etl                # clean it and load data/pedidos.db along with the views
+make api                # API on http://127.0.0.1:8000, interactive docs at /docs
+make test               # the tests need no key and no network
+```
+
+Ask a question:
+
+```bash
+curl -s http://127.0.0.1:8000/ask -H 'Content-Type: application/json' \
+  -d '{"question": "¿Cuánto vendimos en España en marzo?"}'
+```
+
+Real response:
+
+```json
+{
+  "question": "¿Cuánto vendimos en España en marzo?",
+  "sql": "SELECT ROUND(SUM(ventas), 2) AS ventas FROM ventas_mes_pais WHERE pais = 'España' AND mes = '2025-03'",
+  "explanation": "Se calculó el total de ventas en España para el mes de marzo utilizando el año 2025 según las reglas establecidas.",
+  "columns": ["ventas"],
+  "rows": [[3647.9]],
+  "row_count": 1,
+  "truncated": false
+}
+```
+
+## API
+
+- `POST /ask` with `{"question": "..."}` (3 to 500 characters) returns the generated SQL, an
+  explanation of how the question was understood, and the result (`columns`, `rows`, `row_count`
+  and `truncated`).
+- `GET /health` returns `{"status": "ok"}` when the database is ready.
+
+Every error has the same shape, `{"error": {"code", "message", "sql"?}}`. The `code` is stable, for
+programs; the `message` is in Spanish, for people; and `sql` appears when the error is about the
+generated query. The status code tells the client what to do: **4xx** means this question cannot be
+answered safely, so retrying it won't help; **5xx** means a dependency failed, and retrying later may
+work.
+
+| Situation | HTTP | `code` |
+|---|---|---|
+| The question is missing, empty or longer than 500 characters | 422 | `INVALID_REQUEST` |
+| The LLM says the data cannot answer the question, or it asks to change data | 422 | `QUESTION_NOT_ANSWERABLE` |
+| The generated SQL is not a single read query over the allowed tables | 422 | `QUERY_NOT_ALLOWED` |
+| The SQL is valid but fails when it runs (for example, an unknown column) | 422 | `QUERY_FAILED` |
+| The LLM's answer is unusable (invalid JSON, blocked or cut off) | 502 | `LLM_INVALID_OUTPUT` |
+| The LLM is unreachable, the key is missing or invalid, or the quota is used up | 503 | `LLM_UNAVAILABLE` |
+| The database does not exist yet (run `make etl`) | 503 | `DB_UNAVAILABLE` |
+| The LLM takes too long | 504 | `LLM_TIMEOUT` |
+| The query takes too long | 504 | `QUERY_TIMEOUT` |
+
+For example, if the LLM generated `DROP TABLE pedidos`, the API would answer with a 422,
+`{"error": {"code": "QUERY_NOT_ALLOWED", "message": "Solo se permiten consultas de lectura (SELECT).",
+"sql": "DROP TABLE pedidos"}}`, and the database would not be touched.
 
 ## Architecture
 
@@ -184,6 +243,7 @@ uses at runtime.
 | Data, cleaning and views | The generator with errors, the cleaning, the load and the views, with their tests | The cleaning rules and the definition of a sale (a completed order) | _To be completed after reviewing the code_ |
 | SQL validation | Writing the attack tests first, then the validator and the locked-down connection | The two-layer validation | The tests caught two bugs in the first version (how `COUNT(*)` and denied functions reach SQLite's authorizer); they were fixed before the commit |
 | LLM client | The Gemini client, the prompt and the error handling, then a check against the real API | Structured output, the prompt design and the error mapping | The real-API check caught that "marzo" was added up over every year; the fix was to compute, in the prompt, which year each month refers to |
+| API | The endpoint, the error contract and its tests with a fake LLM | The 4xx/5xx split and the single error shape | Running the real API returned 503s with no visible cause; the log now records the network error behind them (DNS failures on my connection) |
 
 ## Time spent
 

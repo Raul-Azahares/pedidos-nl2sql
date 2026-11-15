@@ -91,8 +91,11 @@ class GeminiSQLGenerator:
                 headers={"x-goog-api-key": self._api_key},
             )
         except httpx.TimeoutException as error:
+            logger.warning("LLM request timed out: %r", error)
             raise LLMTimeoutError("El LLM no ha respondido a tiempo.") from error
         except httpx.HTTPError as error:
+            # The client gets a clean message; the log keeps the real cause for whoever operates it.
+            logger.warning("LLM request failed: %r", error)
             raise LLMUnavailableError("No se ha podido conectar con el proveedor del LLM.") from error
 
         _raise_for_status(response, self._model)
