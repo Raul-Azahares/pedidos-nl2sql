@@ -292,10 +292,11 @@ phase at a time.
 | Environment | Installing the planned dependencies (DuckDB + pandas) | Its diagnosis: PyPI ran at ~10 KB/s and those libraries weigh ~50 MB | I chose SQLite + the standard library instead of DuckDB + pandas: nothing to download, and the engine can enforce the allowed-table list |
 | Environment | Installing the Gemini SDK (`google-genai`) | The download of `cryptography` (4.5 MB, an SDK dependency) failed 9 times; it proposed calling the REST API with httpx | Accepted: one POST request doesn't justify 5 MB of native dependencies |
 | Docs | Commit messages, this README and code comments | Their content | It wrote them in Spanish; I switched them to English (the data stays in Spanish) |
-| Data, cleaning and views | The generator with errors, the cleaning, the load and the views, with their tests | The cleaning rules and the definition of a sale (a completed order) | _To be completed after reviewing the code_ |
+| Data, cleaning and views | The generator with errors, the cleaning, the load and the views, with their tests | The cleaning rules and the definition of a sale (a completed order) | Nothing: I reviewed them and kept them as they were |
 | SQL validation | Writing the attack tests first, then the validator and the locked-down connection | The two-layer validation | The tests caught two bugs in the first version (how `COUNT(*)` and denied functions reach SQLite's authorizer); they were fixed before the commit |
 | LLM client | The Gemini client, the prompt and the error handling, then a check against the real API | Structured output, the prompt design and the error mapping | The real-API check caught that "marzo" was added up over every year; the fix was to compute, in the prompt, which year each month refers to |
 | API | The endpoint, the error contract and its tests with a fake LLM | The 4xx/5xx split and the single error shape | Running the real API returned 503s with no visible cause; the log now records the network error behind them (DNS failures on my connection) |
+| CI | A GitHub Actions workflow with lint and tests on every push | The workflow | Its first run failed: it used `astral-sh/setup-uv@v10`, a tag that does not exist because that action only publishes exact versions. I pinned it to `v10.3.3` |
 
 ## Time spent
 

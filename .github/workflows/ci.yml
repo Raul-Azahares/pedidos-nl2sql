@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      # setup-uv only publishes exact versions (there is no floating v10 tag)
+      - uses: astral-sh/setup-uv@v10.3.3
       - name: Install dependencies (Python version from .python-version)
         run: uv sync --locked
       - name: Lint
