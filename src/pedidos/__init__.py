@@ -1,1 +1,1 @@
-"""Pedidos: limpieza de datos, vistas SQL y API de preguntas en lenguaje natural."""
+"""Pedidos: data cleaning, SQL views and an API that answers natural-language questions."""

@@ -1,7 +1,7 @@
 [project]
 name = "pedidos"
 version = "0.1.0"
-description = "Limpieza de pedidos, vistas SQL y una API que responde preguntas en lenguaje natural con SQL validada."
+description = "Order data cleaning, SQL views and an API that answers natural-language questions with validated SQL."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
